@@ -5,7 +5,7 @@
 #include <vector>
 #include <cassert>
 
-const int USE_SKY_COLOR = 0;
+#define USE_SKY_COLOR 0;
 
 const float kPi = 3.1415927f;
 const float kEpsilon = 0.00001f;
@@ -199,9 +199,9 @@ Vector3 RandomVector(const Vector3& normal, float rand0, float rand1)
     return result;
 }
 
-const int kMaxBounces = 6;
 Vector3 TracePath(const Ray& ray, const std::vector<Sphere>& spheres, int bounce)
 {
+    const int kMaxBounces = 6;
     if (bounce == kMaxBounces)
     {
         return Vector3{ 0.0f, 0.0f, 0.0f };
@@ -251,8 +251,15 @@ Vector3 TracePath(const Ray& ray, const std::vector<Sphere>& spheres, int bounce
     }
 }
 
-// MSR_TODO: This is horrid, fix
-#define SPHERE_CENTER_RAD(x, y, z) Vector3{x, y, z}, (Vector3{x, y, z} - globalCenter).Length() - globalRadius
+Sphere GenerateTangentSphere(const Sphere& sphere, const Vector3& center, const Material* material)
+{
+    return Sphere{ center, (center - sphere.center).Length() - sphere.radius, material };
+}
+
+Sphere GenerateOffsetSphere(const Sphere& sphere, const Vector3& center, float offset, const Material* material)
+{
+    return Sphere{ center, (center - sphere.center).Length() - sphere.radius - offset, material };
+}
 
 void InitScene(std::vector<Sphere>& spheres, std::vector<Material>& materials)
 {
@@ -265,16 +272,16 @@ void InitScene(std::vector<Sphere>& spheres, std::vector<Material>& materials)
     materials.emplace_back(Material{ Vector3{1.0f, 1.0f, 1.0f}, Vector3{0.0f, 0.0f, 0.0f}, {1.0f} });
     materials.emplace_back(Material{ Vector3{0.5f, 1.0f, 1.0f}, Vector3{5.0f, 5.0f, 10.0f}, {1.0f} });
 
-    float globalRadius = 100.0f;
+    const float globalRadius = 100.0f;
     Vector3 globalCenter{ 0.0f, -globalRadius, 0.0f };
     spheres.emplace_back(Sphere{ globalCenter, {100.0f}, {&materials[0]} });
-    spheres.emplace_back(Sphere{ SPHERE_CENTER_RAD(0.0f, 0.125f, 0.0f),    {&materials[1]} });
-    spheres.emplace_back(Sphere{ SPHERE_CENTER_RAD(-0.5f, 0.125f, 0.0f),   {&materials[2]} });
-    spheres.emplace_back(Sphere{ SPHERE_CENTER_RAD(0.5f, 0.25f, 0.5f),     {&materials[3]} });
-    spheres.emplace_back(Sphere{ SPHERE_CENTER_RAD(0.25f, 0.05f, -0.25f),  {&materials[4]} });
-    spheres.emplace_back(Sphere{ SPHERE_CENTER_RAD(-0.25f, 0.5f, 1.5f),    {&materials[5]} });
-    spheres.emplace_back(Sphere{ SPHERE_CENTER_RAD(0.25f, 0.1f, 0.25f),    {&materials[6]} });
-    spheres.emplace_back(Sphere{ SPHERE_CENTER_RAD(-0.65f, 0.05f, -0.25f), {&materials[7]} });
+    spheres.emplace_back(GenerateOffsetSphere(spheres[0], Vector3{ 0.0f, 0.25f, 0.0f }, 0.125f, &materials[1]));
+    spheres.emplace_back(GenerateTangentSphere(spheres[0], Vector3{-0.5f, 0.125f, 0.0f}, &materials[2]));
+    spheres.emplace_back(GenerateTangentSphere(spheres[0], Vector3{ 0.5f, 0.25f, 0.5f }, &materials[3]));
+    spheres.emplace_back(GenerateTangentSphere(spheres[0], Vector3{ 0.25f, 0.05f, -0.25f }, &materials[4]));
+    spheres.emplace_back(GenerateOffsetSphere(spheres[0], Vector3{ -0.25f, 1.0f, 1.5f }, 0.5f, &materials[5]));
+    spheres.emplace_back(GenerateTangentSphere(spheres[0], Vector3{ 0.25f, 0.1f, 0.25f }, &materials[6]));
+    spheres.emplace_back(GenerateTangentSphere(spheres[0], Vector3{ -0.65f, 0.05f, -0.25f }, &materials[7]));
 }
 
 void Render(int width, int height, HDC hdc)
@@ -284,11 +291,11 @@ void Render(int width, int height, HDC hdc)
 
     InitScene(spheres, materials);
 
-    Vector3 camTarget(0.0f, 0.0f, 0.0f);
-    Vector3 camPos{ 0.0f, 0.5f, -1.0f };
-    Vector3 camUp{ 0.0f, 1.0f, 0.0f };
+    const Vector3 camTarget{ 0.0f, 0.0f, 0.0f };
+    const Vector3 camPos{ 0.0f, 0.5f, -1.0f };
+    const Vector3 camUp{ 0.0f, 1.0f, 0.0f };
     Vector3 camRight = camUp.Cross((camTarget - camPos).Normalize());
-    camUp = camRight.Cross(camPos.Normalize());
+    Vector3 orthoCamUp = camRight.Cross(camPos.Normalize());
 
     float dx = 2.0f / static_cast<float>(width);
     float dy = 2.0f / static_cast<float>(height);
@@ -301,10 +308,10 @@ void Render(int width, int height, HDC hdc)
             ray.origin = camPos;
 
             Vector3 nearPlanePos;
-            nearPlanePos = camRight * (-1.0f + dx * static_cast<float>(i)) + camUp * (1.0f - dy * static_cast<float>(j));
+            nearPlanePos = camRight * (-1.0f + dx * static_cast<float>(i)) + orthoCamUp * (1.0f - dy * static_cast<float>(j));
             ray.direction = (nearPlanePos - camPos).Normalize();
 
-            const int kNumSamples = 4;
+            const int kNumSamples = 256;
             Vector3 colorSum{ 0.0f };
             for (int s = 0; s < kNumSamples; ++s)
             {
