@@ -5,7 +5,7 @@
 #include <vector>
 #include <cassert>
 
-#define USE_SKY_COLOR 0;
+#define USE_SKY_COLOR 0
 
 const float kPi = 3.1415927f;
 const float kEpsilon = 0.00001f;
@@ -228,7 +228,7 @@ Vector3 TracePath(const Ray& ray, const std::vector<Sphere>& spheres, int bounce
 
     if (nearestSphereIndex == INT_MAX)
     {
-        #if USE_SKY_COLOR 1
+        #if USE_SKY_COLOR == 1
         return Lerp(Vector3{ 0.0f, 0.0f, 0.0f }, Vector3{ 0.25f, 0.55f, 0.75f }, ray.direction.y);
         #else
         return Vector3{ 0.0f, 0.0f, 0.0f };
@@ -294,11 +294,11 @@ void Render(int width, int height, HDC hdc)
     const Vector3 camTarget{ 0.0f, 0.0f, 0.0f };
     const Vector3 camPos{ 0.0f, 0.5f, -1.0f };
     const Vector3 camUp{ 0.0f, 1.0f, 0.0f };
-    Vector3 camRight = camUp.Cross((camTarget - camPos).Normalize());
-    Vector3 orthoCamUp = camRight.Cross(camPos.Normalize());
+    const Vector3 camRight = camUp.Cross((camTarget - camPos).Normalize());
+    const Vector3 orthoCamUp = camRight.Cross(camPos.Normalize());
 
-    float dx = 2.0f / static_cast<float>(width);
-    float dy = 2.0f / static_cast<float>(height);
+    const float dx = 2.0f / static_cast<float>(width);
+    const float dy = 2.0f / static_cast<float>(height);
 
     for (int i = 0; i < width; ++i)
     {
