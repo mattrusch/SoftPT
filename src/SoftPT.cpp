@@ -4,6 +4,7 @@
 #include <Windows.h>
 #include <vector>
 #include <cassert>
+#include <array>
 
 #define USE_SKY_COLOR 0
 
@@ -126,7 +127,8 @@ float Max(float a, float b)
     return a > b ? a : b;
 }
 
-std::vector<Vector3> Intersect(const Ray& ray, const Sphere& sphere)
+// Returns number of intersections
+int Intersect(const Ray& ray, const Sphere& sphere, std::array<Vector3, 2>& result)
 {
     // Calculate discriminant
     Vector3 rayOriginToSphereCenter = ray.origin - sphere.center;
@@ -135,18 +137,19 @@ std::vector<Vector3> Intersect(const Ray& ray, const Sphere& sphere)
     float c = rayOriginToSphereCenter.Dot(rayOriginToSphereCenter) - sphere.radius * sphere.radius;
     float discriminant = b * b - 4.0f * a * c;
 
-    std::vector<Vector3> result;
     if (discriminant < 0.0f)
     {
-        return result;
+        return 0;
     }
     else
     {
+        int numIntersections = 0;
+
         // Solve quadratic for real roots
         float t0 = (-1.0f * b + sqrtf(discriminant)) / (2.0f * a);
         if (t0 >= 0.0f)
         {
-            result.emplace_back(ray.origin + ray.direction * t0);
+            result[numIntersections++] = ray.origin + ray.direction * t0;
         }
 
         if (discriminant > kEpsilon)
@@ -154,7 +157,7 @@ std::vector<Vector3> Intersect(const Ray& ray, const Sphere& sphere)
             float t1 = (-1.0f * b - sqrtf(discriminant)) / (2.0f * a);
             if (t1 >= 0.0f)
             {
-                result.emplace_back(ray.origin + ray.direction * t1);
+                result[numIntersections++] = ray.origin + ray.direction * t1;
 
                 // Order by distance; smallest positive root is closest
                 if ((t0 >= 0.0f && t1 >= 0.0f) && (t1 < t0))
@@ -164,7 +167,7 @@ std::vector<Vector3> Intersect(const Ray& ray, const Sphere& sphere)
             }
         }
 
-        return result;
+        return numIntersections;
     }
 }
 
@@ -213,8 +216,9 @@ Vector3 TracePath(const Ray& ray, const std::vector<Sphere>& spheres, int bounce
 
     for (int i = 0; i < spheres.size(); ++i)
     {
-        auto intersection = Intersect(ray, spheres[i]);
-        if (!intersection.empty())
+        std::array<Vector3, 2> intersection{};
+        int numIntersections = Intersect(ray, spheres[i], intersection);
+        if (numIntersections > 0)
         {
             float distance = (intersection[0] - ray.origin).Length();
             if (distance < nearestDistance)
@@ -311,7 +315,7 @@ void Render(int width, int height, HDC hdc)
             nearPlanePos = camRight * (-1.0f + dx * static_cast<float>(i)) + orthoCamUp * (1.0f - dy * static_cast<float>(j));
             ray.direction = (nearPlanePos - camPos).Normalize();
 
-            const int kNumSamples = 256;
+            const int kNumSamples = 1024;
             Vector3 colorSum{ 0.0f };
             for (int s = 0; s < kNumSamples; ++s)
             {
